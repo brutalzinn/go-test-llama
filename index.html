@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espectrum</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        #chatbox {
+            height: calc(100% - 40px);
+            overflow-y: scroll;
+        }
+
+        .message {
+            margin-bottom: 10px;
+        }
+
+        .user,
+        .bot {
+            display: flex;
+            flex-direction: column;
+            /* Nome acima da mensagem */
+            align-items: flex-end;
+            /* Alinhar à direita (usuário) */
+        }
+
+        .bot {
+            align-items: flex-start;
+            /* Alinhar à esquerda (bot) */
+        }
+
+        .text {
+            background-color: #eee;
+            /* Cor de fundo padrão */
+            padding: 5px 10px;
+            border-radius: 5px;
+            max-width: 70%;
+            /* Largura máxima da mensagem */
+            word-break: break-word;
+            /* Quebra de palavras longas */
+        }
+
+        .bot .text {
+            background-color: #ccf;
+        }
+
+        .username {
+            font-weight: bold;
+            margin-bottom: 5px;
+            /* Espaçamento entre o nome e a mensagem */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid h-100">
+        <div class="row h-100">
+            <div class="col-12 h-100">
+                <h1>Espetre Buddy</h1>
+                <div id="chatbox" class="border rounded p-3 h-100">
+                    <ul id="message-list" class="list-unstyled"></ul>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="message" class="form-control" placeholder="Digite sua mensagem">
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="button" onclick="sendMessage()">Enviar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.min.js"></script>
+
+    <script>
+        var websocket = new WebSocket("ws://localhost:8080/ws");
+        var fullMessage = "";
+        var username = prompt("Digite seu nome:");
+
+        websocket.onopen = function (event) {
+            console.log("Conexão WebSocket aberta");
+            fullMessage = "";
+        };
+
+        websocket.onmessage = function (event) {
+            var message = event.data;
+            fullMessage += message;
+
+            if (message.includes('\n')) {
+
+                var chatbox = document.getElementById("message-list");
+                var newMessage = document.createElement("li");
+                newMessage.classList.add("message", "bot");
+                newMessage.innerHTML = '<span class="username">Espectrum:</span> <span class="text">' + fullMessage + '</span>';
+                chatbox.appendChild(newMessage);
+                fullMessage = "";
+            }
+        };
+
+        function sendMessage() {
+            var message = document.getElementById("message").value;
+            websocket.send(JSON.stringify({
+                user: username,
+                message
+            }));
+
+            var chatbox = document.getElementById("message-list");
+            var newMessage = document.createElement("li");
+            newMessage.classList.add("message", "user");
+            newMessage.innerHTML = '<span class="username">' + username + ':</span> <span class="text">' + message + '</span>';
+            chatbox.appendChild(newMessage);
+
+            document.getElementById("message").value = "";
+        }
+
+        document.getElementById("message").addEventListener("keyup", function (event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+
+</html>
