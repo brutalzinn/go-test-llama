@@ -79,7 +79,7 @@ func armazenarBemEstar(db *sql.DB, usuario string, sentimento string) error {
 
 var upgrader = websocket.Upgrader{}
 
-var ollamaURL = "http://192.168.0.175:11434/api/generate"
+var ollamaURL = "http://192.168.0.175:11434/api/generate" ///meu homeserver rodando ollama com o modelo llama3.2 4g
 var model = "llama3.2"
 
 var prompt = `Você é o Espectrum, um assistente de IA útil e amigável, projetado para apoiar pessoas com autismo e TPS.
