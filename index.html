@@ -84,7 +84,11 @@
     <script>
         var websocket = new WebSocket("ws://localhost:8080/ws");
         var fullMessage = "";
-        var username = prompt("Digite seu nome:");
+        var username = localStorage.getItem("user");
+        if(!username){
+            var username = prompt("Digite seu nome:");
+            localStorage.setItem("user", username)
+        }
 
         websocket.onopen = function (event) {
             console.log("Conexão WebSocket aberta");
