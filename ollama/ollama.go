@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -54,7 +53,6 @@ func (api OllamaApi) SendOllamaChatStream(msg string, model string, responseCall
 	}
 	defer resp.Body.Close()
 	reader := bufio.NewReader(resp.Body)
-	var fullResponse strings.Builder
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -70,8 +68,8 @@ func (api OllamaApi) SendOllamaChatStream(msg string, model string, responseCall
 			logrus.Error("Erro ao decodificar JSON:", err)
 			continue
 		}
-		fullResponse.WriteString(ollamaResponse.Response)
+		responseCallback(ollamaResponse.Response)
+
 	}
-	responseCallback(fullResponse.String())
 	return nil
 }
