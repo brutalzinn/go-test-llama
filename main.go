@@ -14,7 +14,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var upgrader = websocket.Upgrader{}
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 var ollamaApi = ollama.OllamaApi{}
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
@@ -42,41 +44,42 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 		message := " O usuário se chama: " + msg.User + " e enviou: " + msg.Message
 		logrus.Info("Sending message to OLLAMA:", message)
-		err = ollamaApi.SendOllamaChatStream(message, "llama3.2", func(response string) {
-			logrus.Info("Response OLLAMA:", response)
-
-			instructions := instruction.HandleCallback(response)
-			for _, ins := range instructions {
-				switch ins.Name {
-				case "health":
-					logrus.Info("health instruction received with: " + ins.Args[0])
-					err = database.InsertHealthData(db, ins.Args[0], ins.Args[1])
-					if err != nil {
-						logrus.Error("Error when insert health data:", err)
-					}
-					break
-				case "sensorial":
-					logrus.Info("sensorial instruction received with: " + ins.Args[0] + " " + ins.Args[1] + " " + ins.Args[2])
-					err = database.InsertSensorialData(db, ins.Args[0], ins.Args[1], ins.Args[2], ins.Args[3])
-					if err != nil {
-						logrus.Error("Error when insert sensorial data:", err)
-					}
-					break
-				default:
-					logrus.Error("Instruction invalid:", ins.Name)
-					continue
-				}
-			}
-			err = conn.WriteMessage(websocket.TextMessage, []byte(response))
+		response := ""
+		err = ollamaApi.SendOllamaChatStream(message, "llama3.2", func(chunk string) {
+			logrus.Info("Response OLLAMA:", chunk)
+			err = conn.WriteJSON(map[string]string{"response": chunk})
 			if err != nil {
-				logrus.Error("Erro ao escrever mensagem:", err)
+				logrus.Error("error when send websocket:", err)
 			}
+			response += chunk
 		})
+		instructions := instruction.HandleCallback(response)
+		for _, ins := range instructions {
+			switch ins.Name {
+			case "health":
+				logrus.Info("health instruction received with: " + ins.Args[0])
+				err = database.InsertHealthData(db, ins.Args[0], ins.Args[1])
+				if err != nil {
+					logrus.Error("Error when insert health data:", err)
+				}
+				break
+			case "sensorial":
+				logrus.Info("sensorial instruction received with: " + ins.Args[0] + " " + ins.Args[1] + " " + ins.Args[2])
+				err = database.InsertSensorialData(db, ins.Args[0], ins.Args[1], ins.Args[2], ins.Args[3])
+				if err != nil {
+					logrus.Error("Error when insert sensorial data:", err)
+				}
+				break
+			default:
+				logrus.Error("Instruction invalid:", ins.Name)
+				continue
+			}
+		}
 		if err != nil {
 			logrus.Error("Erro ao enviar mensagem para OLLAMA:", err)
 			err = conn.WriteMessage(websocket.TextMessage, []byte(err.Error()))
 			if err != nil {
-				logrus.Error("Erro ao escrever mensagem:", err)
+				logrus.Error("error when send websocket:", err)
 			}
 			break
 		}

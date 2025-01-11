@@ -9,12 +9,12 @@
     <style>
         html,
         body {
-            height: 100%;
+            height: 80vh;
             margin: 0;
         }
 
         #chatbox {
-            height: calc(100% - 40px);
+            height: calc(80vh - 10vh);
             overflow-y: scroll;
         }
 
@@ -82,36 +82,82 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.min.js"></script>
 
     <script>
-        var websocket = new WebSocket("ws://localhost:8080/ws");
+        var websocket;
         var fullMessage = "";
         var username = localStorage.getItem("user");
-        if(!username){
+        var reconnectInterval;
+        var isConnected = false;
+        var isTyping = false; // Flag to track typing state
+        var typingTimer;     // Timer for the typing indicator
+
+        if (!username) {
             var username = prompt("Digite seu nome:");
             localStorage.setItem("user", username)
         }
 
-        websocket.onopen = function (event) {
-            console.log("Conexão WebSocket aberta");
-            fullMessage = "";
-        };
+        connectToServer();
 
-        websocket.onmessage = function (event) {
-            var message = event.data;
-            fullMessage += message;
+        function connectToServer() {
+            websocket = new WebSocket("ws://localhost:8080/ws");
 
-            if (message.includes('\n')) {
-
-                var chatbox = document.getElementById("message-list");
-                var newMessage = document.createElement("li");
-                newMessage.classList.add("message", "bot");
-                newMessage.innerHTML = '<span class="username">Espectrum:</span> <span class="text">' + fullMessage + '</span>';
-                chatbox.appendChild(newMessage);
+            websocket.onopen = function (event) {
+                console.log("Conexão WebSocket aberta");
                 fullMessage = "";
-            }
-        };
+                isConnected = true;
+                clearInterval(reconnectInterval);
+                displayStatusMessage("Conectado ao servidor.");
+            };
+
+            websocket.onclose = function (event) {
+                console.log("Conexão WebSocket fechada");
+                isConnected = false;
+                displayStatusMessage("Conexão perdida. Tentando reconectar...");
+                reconnectInterval = setInterval(connectToServer, 5000);
+
+            };
+
+            websocket.onmessage = function (event) {
+                var response = JSON.parse(event.data); // Parse the JSON response
+                var message = response.response; // Access the 'response' field
+
+                fullMessage += message;
+
+                if (!isTyping) {
+                    // Show "Espectrum is typing..." message
+                    isTyping = true;
+                    var chatbox = document.getElementById("message-list");
+                    var typingMessage = document.createElement("li");
+                    typingMessage.classList.add("message", "bot");
+                    typingMessage.id = "typing-indicator";
+                    typingMessage.innerHTML = '<span class="username">Espectrum:</span> <span class="text"> está digitando...</span>';
+                    chatbox.appendChild(typingMessage);
+                }
+
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(function () {
+                    isTyping = false;
+                    document.getElementById("typing-indicator").remove();
+                    var chatbox = document.getElementById("message-list");
+                    var newMessage = document.createElement("li");
+                    newMessage.classList.add("message", "bot");
+                    newMessage.innerHTML = '<span class="username">Espectrum:</span> <span class="text">' + fullMessage + '</span>';
+                    chatbox.appendChild(newMessage);
+                    fullMessage = "";
+                }, 1000);
+            };
+
+            websocket.onerror = function (event) {
+                console.error("Erro na conexão WebSocket:", event);
+                if (!isConnected) {
+                    displayStatusMessage("Erro na conexão. Tentando reconectar...");
+                }
+            };
+        }
 
         function sendMessage() {
             var message = document.getElementById("message").value;
+            if (message.trim() === "") return;
+
             websocket.send(JSON.stringify({
                 user: username,
                 message
@@ -131,6 +177,14 @@
                 sendMessage();
             }
         });
+
+        function displayStatusMessage(message) {
+            var chatbox = document.getElementById("message-list");
+            var newMessage = document.createElement("li");
+            newMessage.classList.add("message", "status");
+            newMessage.innerHTML = '<span class="text">' + message + '</span>';
+            chatbox.appendChild(newMessage);
+        }
     </script>
 </body>
 

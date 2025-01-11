@@ -2,6 +2,7 @@ package instruction
 
 import (
 	"regexp"
+	"strings"
 )
 
 type Instruction struct {
@@ -10,20 +11,34 @@ type Instruction struct {
 }
 
 func HandleCallback(ollamaResponse string) []Instruction {
-	re := regexp.MustCompile(`#instruction\("([^"]*)", ((?:"[^"]*",\s*)*"[^"]*")\)`)
-	matches := re.FindAllStringSubmatch(ollamaResponse, -1)
+	// Remove newlines for consistent matching
+	responseWithoutNewlines := strings.ReplaceAll(ollamaResponse, "\n", " ")
+
+	// Regular expression to match instructions
+	re := regexp.MustCompile(`#instruction\(([^)]*)\)`)
+
+	// Find all matches
+	matches := re.FindAllStringSubmatch(responseWithoutNewlines, -1)
 	instructions := []Instruction{}
+
+	// Process each match
 	for _, match := range matches {
-		if len(match) == 3 {
-			instruction := Instruction{
-				Name: match[1],
+		if len(match) == 2 {
+			// Extract arguments from the match
+			args := strings.Split(match[1], ",")
+			if len(args) > 0 {
+				name := strings.TrimSpace(args[0])
+				arguments := []string{}
+				for _, arg := range args[1:] {
+					arguments = append(arguments, strings.TrimSpace(arg))
+				}
+				instructions = append(instructions, Instruction{
+					Name: name,
+					Args: arguments,
+				})
 			}
-			args := regexp.MustCompile(`"([^"]*)"`).FindAllStringSubmatch(match[2], -1)
-			for _, arg := range args {
-				instruction.Args = append(instruction.Args, arg[1])
-			}
-			instructions = append(instructions, instruction)
 		}
 	}
+
 	return instructions
 }

@@ -69,7 +69,6 @@ func (api OllamaApi) SendOllamaChatStream(msg string, model string, responseCall
 			continue
 		}
 		responseCallback(ollamaResponse.Response)
-
 	}
 	return nil
 }
